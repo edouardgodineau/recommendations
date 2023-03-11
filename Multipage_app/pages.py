@@ -9,9 +9,12 @@ pd.set_option('display.width', 2000)
 # data = pd.read_excel('Recommendations__.xlsx', sheet_name="Amide_coupling_App")
 path = 'Recommendations__.xlsx'
 sheetname = "Amide_coupling_App"
+
+
 def load_data(path: str, sheetname:str)-> pd.DataFrame:
     data = pd.read_excel(io=path, sheet_name=sheetname)
     return data
+
 
 def format_data(df: pd.DataFrame) -> pd.DataFrame:
     equiv = [col for col in df.columns if "equiv" in col]
