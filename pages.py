@@ -1,21 +1,34 @@
 import pandas as pd
-import numpy as np
 import re
+import bigtree as bt
+import pprint
+
 
 pd.set_option('display.max_columns', None)
-data = pd.read_excel('Recommendations__.xlsx', sheet_name="Amide_coupling_App")
-
+pd.set_option('display.width', 2000)
+# data = pd.read_excel('Recommendations__.xlsx', sheet_name="Amide_coupling_App")
+path = 'Recommendations__.xlsx'
+sheetname = "Amide_coupling_App"
+def load_data(path: str, sheetname:str)-> pd.DataFrame:
+    data = pd.read_excel(io=path, sheet_name=sheetname)
+    return data
 
 def format_data(df: pd.DataFrame) -> pd.DataFrame:
     equiv = [col for col in df.columns if "equiv" in col]
     unit = [col for col in df.columns if "unit" in col]
-    for col in equiv:
-        df[col] = " ("+ df[col].astype(str) + " eq.)" if df[col].notna().all() else ""
-    for col in unit:
-        df[col] = " " + df[col].astype(str) if df[col].notna().all() else ""
+    # remaining = ['reference', 'link', 'ELN', 'Comments']
+
+    for idx, row in df.iterrows():
+        for col in equiv:
+            df.loc[idx, col] = " (" + str(df.loc[idx, col]).replace('nan', '') + " eq.)" if pd.notna(df.loc[idx, col]) else ""
+
+        for col in unit:
+            df.loc[idx, col] = str(df.loc[idx, col]).replace('nan', '') if pd.notna(df.loc[idx, col]) else ""
+        # for col in remaining:
+        #     df.loc[idx, col] = str(df.loc[idx, col]).replace('nan', '') if pd.notna(df.loc[idx, col]) else ""
+            # df.loc[idx, col] = "" if pd.notna(df.loc[idx, col]) else df.loc[idx, col]
     return df
 
-data = format_data(data)
 
 
 def build_pairs(df: pd.DataFrame) -> list:
@@ -24,7 +37,9 @@ def build_pairs(df: pd.DataFrame) -> list:
     :param df: dataframe
     :return: list of pairs
     """
+    df = format_data(df)
     params = [col.split('_')[0] for col in df.columns if "_equiv" in col or "_value" in col]
+
     cols = []
     for param in params:
         param_value_unit = [col for col in df.columns if param in col]
@@ -53,34 +68,72 @@ def prepare_params(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-data = prepare_params(data)
-print(data)
+def build_recommendation(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Build recommendation
+    :param df: dataframe
+    :return: dataframe
+    """
+    df = prepare_params(df)
+
+    additionnal_info = ['Level_1', 'Level_2','Level_3', 'reaction', 'conditions#', 'results', 'reference', 'link', 'ELN', 'Comments']
+    cols = [col for col in df.columns if col not in additionnal_info]
+    df['recommendation'] = df[cols].apply(lambda x: ', '.join([str(i) for i in x if pd.notna(i) and str(i) != '']), axis=1)
+    return df
+
+def get_node_name(node):
+    node_names = [node.name]
+    for child in node.children:
+        node_names += get_node_name(child)
+    return node_names
 
 
 
 
-# # View the resulting column pairs
+# recommended_cols = ['reaction', 'results', 'conditions#', 'recommendation', 'reference', 'link', 'ELN', 'Comments']
+# out = df[recommended_cols]
 #
-# # data['recommendation'] = data[cols].apply(lambda x: ', '.join(x.dropna().astype(str)), axis=1)
-# data['recommendation'] = data[cols].apply(lambda x: ', '.join([str(i) for i in x if pd.notna(i) and str(i) != 'nan']), axis=1)
-#
-# print(data['recommendation'].head())
-
-# df = data.recommendation
-# df.to_json('recommendations4amide.json')
-#
-#
-# import json
-#
-#
-# with open('recommendations4amide.json', 'r') as f:
-#     data = json.loads(f.read())
-#
-# amide1 = []
-# for i in range(3):
-#     reco = f'Top{i+1} condition: {data[str(i)]}'
-#     amide1.append(reco)
-#
-# print(amide1)
+# out.to_json('recommendations4amide.json')
+# out.to_csv('recommendations4amide.csv', sep='\t', index=False)
 
 
+def build_tree_nodes(df: pd.DataFrame) -> pd.DataFrame:
+    levels = [col for col in df.columns if "Level" in col]
+    df['tree'] = df[levels].apply(lambda x: '/'.join(x.dropna().astype(str)), axis=1)
+    return df
+
+
+def build_dict(df: pd.DataFrame) -> dict:
+    """
+    Build dictionary of recommendations
+    :param df: dataframe
+    :return: dictionary
+    """
+    result_dict = {}
+    for tree, group in df.groupby('tree'):
+        conditions_list = []
+        for index, row in group.iterrows():
+            rating = row['conditions#']
+            recommendation = row['recommendation']
+            eln = row['ELN'] if pd.notna(row['ELN']) else ""
+            comments = row['Comments'] if pd.notna(row['Comments']) else ""
+            reference = row['reference'] if pd.notna(row['reference']) else ""
+            link = row['link'] if pd.notna(row['link']) else ""
+            conditions_list.append({'rating': rating, 'recommendation': recommendation,'eln':eln, 'comments': comments, 'reference': reference, 'link': link})
+        result_dict[tree] = {'conditions#': conditions_list}
+    return result_dict
+
+df = load_data(path, sheetname)
+df = build_recommendation(df)
+df = build_tree_nodes(df)
+tree = build_dict(df)
+root = bt.dict_to_tree(tree)
+
+# node_name = get_node_name(root)
+# print(node_name)
+# for i in root.children:
+#     print(i.name)
+#     for j in i.children:
+#         print(j.name)
+
+# print(root.descendants)
