@@ -62,5 +62,3 @@ with st.container():
         file_path = "Utils/images/Solvent guide.JPG"
         link = f'<a target="_blank"><img src="data:image/png;base64,{base64.b64encode(open(file_path, "rb").read()).decode()}" alt="Clickable image" width="300"></a>'
         st.markdown(link, unsafe_allow_html=True)
-
-print(__name__)
