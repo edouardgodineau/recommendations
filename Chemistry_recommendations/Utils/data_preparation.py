@@ -1,20 +1,19 @@
-import pandas as pd
 import re
-import bigtree as bt
-import pprint
+
+import pandas as pd
+
+# import bigtree as bt
+# import pprint
 
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 2000)
-# data = pd.read_excel('Recommendations__.xlsx', sheet_name="Amide_coupling_App")
-path = 'Recommendations__.xlsx'
-sheetname = "Amide_coupling_App"
+
 
 
 def load_data(path: str, sheetname:str)-> pd.DataFrame:
     data = pd.read_excel(io=path, sheet_name=sheetname)
     return data
-
 
 def format_data(df: pd.DataFrame) -> pd.DataFrame:
     equiv = [col for col in df.columns if "equiv" in col]
@@ -91,15 +90,6 @@ def get_node_name(node):
     return node_names
 
 
-
-
-# recommended_cols = ['reaction', 'results', 'conditions#', 'recommendation', 'reference', 'link', 'ELN', 'Comments']
-# out = df[recommended_cols]
-#
-# out.to_json('recommendations4amide.json')
-# out.to_csv('recommendations4amide.csv', sep='\t', index=False)
-
-
 def build_tree_nodes(df: pd.DataFrame) -> pd.DataFrame:
     levels = [col for col in df.columns if "Level" in col]
     df['tree'] = df[levels].apply(lambda x: '/'.join(x.dropna().astype(str)), axis=1)
@@ -126,17 +116,5 @@ def build_dict(df: pd.DataFrame) -> dict:
         result_dict[tree] = {'conditions#': conditions_list}
     return result_dict
 
-df = load_data(path, sheetname)
-df = build_recommendation(df)
-df = build_tree_nodes(df)
-tree = build_dict(df)
-root = bt.dict_to_tree(tree)
 
-# node_name = get_node_name(root)
-# print(node_name)
-# for i in root.children:
-#     print(i.name)
-#     for j in i.children:
-#         print(j.name)
 
-# print(root.descendants)

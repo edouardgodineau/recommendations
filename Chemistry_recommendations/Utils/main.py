@@ -1,5 +1,6 @@
 import streamlit as st
-from pages import *
+
+from data_preparation import *
 
 df = load_data(path, sheetname)
 df = build_recommendation(df)
