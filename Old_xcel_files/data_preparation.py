@@ -18,7 +18,6 @@ def load_data(path: str, sheetname:str)-> pd.DataFrame:
 def format_data(df: pd.DataFrame) -> pd.DataFrame:
     equiv = [col for col in df.columns if "equiv" in col]
     unit = [col for col in df.columns if "unit" in col]
-    # remaining = ['reference', 'link', 'ELN', 'Comments']
 
     for idx, row in df.iterrows():
         for col in equiv:
@@ -26,9 +25,7 @@ def format_data(df: pd.DataFrame) -> pd.DataFrame:
 
         for col in unit:
             df.loc[idx, col] = str(df.loc[idx, col]).replace('nan', '') if pd.notna(df.loc[idx, col]) else ""
-        # for col in remaining:
-        #     df.loc[idx, col] = str(df.loc[idx, col]).replace('nan', '') if pd.notna(df.loc[idx, col]) else ""
-            # df.loc[idx, col] = "" if pd.notna(df.loc[idx, col]) else df.loc[idx, col]
+
     return df
 
 
@@ -115,6 +112,74 @@ def build_dict(df: pd.DataFrame) -> dict:
             conditions_list.append({'rating': rating, 'recommendation': recommendation,'eln':eln, 'comments': comments, 'reference': reference, 'link': link})
         result_dict[tree] = {'conditions#': conditions_list}
     return result_dict
+
+from dataclasses import dataclass, field
+
+
+@dataclass
+class ExcelData:
+    file_path: str
+    sheetname: str
+    level1: pd.Series = field(init=False)
+    level2: pd.Series = field(init=False)
+    level3: pd.Series = field(init=False)
+    level4: pd.Series = field(init=False, default=None)
+    level5: pd.Series = field(init=False, default=None)
+    level6: pd.Series = field(init=False, default=None)
+    level7: pd.Series = field(init=False, default=None)
+    level8: pd.Series = field(init=False, default=None)
+    level9: pd.Series = field(init=False, default=None)
+    ranking: pd.Series = field(init=False)
+
+    def __post_init__(self):
+        self.df = pd.read_excel(io=self.file_path, sheet_name=self.sheetname)
+        self.columns = self.df.columns
+        for n in range(1,10):
+            level = "level"+str(n)
+            Level_n = "Level_"+str(n)
+            if "Level_"+str(n) in self.df.columns:
+                setattr(self, level, self.df[Level_n])
+        self.ranking = self.df['ranking']
+        self.reference = self.df['reference']
+        self.ELN = self.df['ELN']
+        self.link = self.df['link']
+        self.comments = self.df['Comments']
+        static_cols = ['Level_1', 'Level_2', 'Level_3','ranking', 'reference', 'ELN', 'link', 'Comments']
+        self.conditions_columns = [col for col in self.df.columns if col not in static_cols]
+        self.conditions = self.df[self.conditions_columns]
+        self.recommendation = None
+
+@dataclass
+class Recommendation:
+    df: ExcelData
+
+    def build_recommendation(self):
+        self.df.recommendation = self.df.conditions.apply(lambda x: ', '.join([str(i) for i in x if pd.notna(i) and str(i) != '']), axis=1)
+        return self.df
+
+
+@dataclass
+class Tree:
+    df: ExcelData
+    tree: pd.Series = field(init=False)
+
+    def build_nodes(self):
+        levels = []
+        for level in range(1, 10):
+            if hasattr(self.df, f"level{level}"):
+                levels.append(getattr(self.df, f"level{level}"))
+        df_concatenated = pd.concat(levels, axis=1)
+        self.df.tree = df_concatenated.apply(lambda x: ".".join(x.dropna().astype(str)), axis=1)
+        return self.df.tree
+
+
+
+file_path = "../Chemistry_recommendations/Utils/Recommendations.xlsx"
+sheetname = "Amide_coupling_App_"
+
+amide = ExcelData(file_path, sheetname)
+print(Tree(amide).build_nodes())
+# print(amide.df.columns)
 
 
 
